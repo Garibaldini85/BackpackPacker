@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>ButAndTextField.qml</file>
+        <file>CheckingValidKeyPage.qml</file>
+        <file>DecodePage.qml</file>
+        <file>EncodePage.qml</file>
+        <file>GenerationKeyPage.qml</file>
+        <file>StatAndInpTextField.qml</file>
+        <file>ThreeSpinBox.qml</file>
+        <file>icon.png</file>
+    </qresource>
+</RCC>
