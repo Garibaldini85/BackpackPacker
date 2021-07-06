@@ -1,3 +1,21 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 #include "qdecoder.h"
 
 QDecoder::QDecoder(QString &dirKey, QString &dirEncFile, QString &dirFile)
@@ -5,12 +23,15 @@ QDecoder::QDecoder(QString &dirKey, QString &dirEncFile, QString &dirFile)
     this->dirKey = dirKey;
     this->dirFile = dirFile;
     this->dirEncFile = dirEncFile;
-    QFileInfo suf(dirFile);
     QFileInfo sz(dirEncFile);
-    if (suf.suffix() == "")
-        this->dirFile = dirFile + "." + dirEncFile.split(".")[dirEncFile.split(".").size() - 1];
-    else
-        this->dirFile = dirFile;
+
+    if (dirFile == "") {
+        pathToFile = sz.absolutePath();
+        this->dirFile = sz.absolutePath() + "/" + "dec_" + sz.baseName() + "." + sz.completeSuffix();
+    } else {
+        pathToFile = dirFile;
+        this->dirFile = dirFile + "/" + "dec_" + sz.baseName() + "." + sz.completeSuffix();
+    }
     sizeF = QFileInfo(dirEncFile).size();
 }
 
@@ -33,10 +54,23 @@ QString QDecoder::getTextBlock(QString bits)
     return retStr;
 }
 
+void QDecoder::genIdTask()
+{ idTask = QDateTime::currentDateTime().toString("hh.mm:ss"); }
+
+QString QDecoder::getIdTask()
+{ return idTask; }
+
+QString QDecoder::getFile()
+{ return dirFile; }
+
+QString QDecoder::getPathToFile()
+{ return pathToFile; }
+
 void QDecoder::decode()
 {
-    emit sizeFile(sizeF);
-    sizeF = 0;
+    //emit sizeFile(sizeF);
+    emit sendNameTask(idTask, "Считываю ключ");
+    long long _sizeF = 0;
 
     QFileHandler handler;
     QTotalSqueezer squeezer;
@@ -47,8 +81,9 @@ void QDecoder::decode()
     handler.openForDecFile(dirEncFile, dirFile);
     QString str = handler.readNextEncBlock();
 
+    emit sendNameTask(idTask, "Дешифрую файл");
     while (str != "") {
-        sizeF += str.size();
+        _sizeF += str.size();
         str = squeezer.decodeIntoUtf(str);
         BIGNUM * _x = BN_new();
         BN_mod_inverse(u, t, m, context);
@@ -72,14 +107,15 @@ void QDecoder::decode()
         QString writeBlock = getTextBlock(bits);
         handler.writeNextBlock(writeBlock);
         str = handler.readNextEncBlock();
-        emit statusDecode(sizeF);
+        emit sendStatus(idTask, _sizeF * 1.0 / sizeF);
     }
 
+    emit sendNameTask(idTask, "Очищаю память");
     handler.closeFile();
     BN_CTX_free(context);
     BN_free(m);
     BN_free(t);
     BN_free(u);
 
-    emit doneDecoding();
+    emit doneDecoding(this);
 }

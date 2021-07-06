@@ -1,6 +1,25 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 import QtQuick 2.12
 import QtQuick.Window 2.12
 import QtQuick.Controls 1.4
+import QtQuick.Controls 2.15
 import QtQuick.Controls.Styles 1.4
 import QtQuick.Dialogs 1.2
 
@@ -11,6 +30,9 @@ import "qml.qrc:/ThreeSpinBox.qml"
 import "qml.qrc:/CheckingValidKeyPage.qml"
 import "qml.qrc:/EncodePage.qml"
 import "qml.qrc:/DecodePage.qml"
+import "qml.qrc:/StatusItem.qml"
+import "qml.qrc:/StatusList.qml"
+import "qml.qrc:/Notification.qml"
 
 /*
  * "ver_0.1.1"
@@ -18,25 +40,35 @@ import "qml.qrc:/DecodePage.qml"
 
 ApplicationWindow {
     id: window
-    width: 640
+    width: winWidth
     height: 480
     visible: true
     minimumHeight : 500
     minimumWidth : 800
     title: titleWin
 
-    property string titleWin      : "ver_0.1.1"
+    property string titleWin      : "ver_0.2.0"
     property bool   isWorking     : false
     property string titleMess     : ""
     property string textMess      : ""
     property bool   isViewingMess : false
-    property double winOpenBar    : 0
-    property double winSecBar     : 0
-    property bool   winIsFindSec  : false
-    property int    winBufSize    : 0
-    property int    winEncodeDone : 0
-    property int    winFileBytes  : 0
-    property int    winDecodeDone : 0
+    property bool   butPress      : false
+    property int    winWidth      : 640
+    property int    xShift        : 0
+
+    signal setIndeterminate (string idTask, bool sendBool)
+    signal winCreateTask    (string idTask, string description)
+    signal setStatusTask    (string idTask, double status)
+
+    function closeListStatus() {
+        winWidth = window.width - 300
+        xShift = 0
+    }
+
+    function openListStatus() {
+        winWidth = window.width + 300
+        xShift = 300
+    }
 
     function setTitleWin(x) {
         if (x === 0)
@@ -53,35 +85,18 @@ ApplicationWindow {
 
     Connections {
         target: packer
-        onSendStatus: {
-            window.isWorking = status
-        }
+
         onSendError: {
             titleMess = titleErr
             textMess = strErr
             isViewingMess = true
         }
-        onSendSecCounter: {
-            winSecBar = counter / winBufSize
-        }
-        onSendOpenCounter: {
-            winOpenBar = counter / winBufSize
-        }
-        onSendCompletedFindSec: {
-            winIsFindSec = isFind
-        }
-        onSendSizeFile: {
-            winFileBytes = size
-        }
-
-        onSendStatusEnc: {
-            winEncodeDone = status
-        }
-
-        onSendStatusDec: {
-            winDecodeDone = status
-        }
-
+        onCreateTask:       { list.createTask(idTask, description) }
+        onDeleteTask:       { list.deleteTask(idTask) }
+        onSetIndeterminate: { list.setInterm(idTask, boolshit) }
+        onSetStatusTask:    { list.setStatus(idTask, status) }
+        onSetNameTask:      { list.setName(idTask, nameTask) }
+        onViewSystemNotif:  { notif.showNotif(titleNotification, textNotification, dir) }
     }
 
     Row {
@@ -89,7 +104,7 @@ ApplicationWindow {
             Repeater {
                 model: view.count
                 Rectangle {
-                    width: window.width * 0.2
+                    width: window.width * 0.2 - xShift * 0.2
                     height: window.height * 0.2
                     border.width: 1
                     Text {
@@ -112,9 +127,9 @@ ApplicationWindow {
         }
         TabView {
             id: view
-            x: window.width * 0.2
+            x: window.width * 0.2 - xShift * 0.2
 
-            width: window.width * 0.8
+            width: window.width * 0.8 - xShift * 0.8
             height: window.height
             style: TabViewStyle {
                 tab: Rectangle {color : "#C5DDE4"}
@@ -125,21 +140,14 @@ ApplicationWindow {
                 GenerationKeyPage {
                     onButClicked: {
                         packer.generateKeys(code, dir, bufSize, bufBytes)
-                        window.winBufSize = bufSize
                     }
                     isWorking: window.isWorking
-                    openBar: winOpenBar
-                    secBar: winSecBar
-                    isFindSec: winIsFindSec
                 }
             }
             Tab {
                 title: "Проверка ключей"
                 CheckingValidKeyPage {
                     onButClicked: {
-                        //void QMainPackingPackageOfPackedPackPacker::checkValidKey(QString code, QString dirOpenKey, QString dirSecrKey)
-
-                        //window.isWorking = sendWorking
                         packer.checkValidKey(code, dirOpenKey, dirSecKey)
                     }
                     isWorking: window.isWorking
@@ -152,8 +160,6 @@ ApplicationWindow {
                         packer.encodeFile(dirKey, dirFile, dirEncFile)
                     }
                     isWorking: window.isWorking
-                    encodeBar: winEncodeDone / winFileBytes
-
                 }
             }
             Tab {
@@ -163,7 +169,6 @@ ApplicationWindow {
                         packer.decodeFile(code, dirKey, dirFile, dirDecFile)
                     }
                     isWorking: window.isWorking
-                    decodeBar: winDecodeDone / winFileBytes
                 }
             }
             Tab {
@@ -185,9 +190,42 @@ ApplicationWindow {
         standardButtons: StandardButton.Ok
 
         onButtonClicked: {
-                    if (clickedButton == StandardButton.Ok)
+                    if (clickedButton === StandardButton.Ok)
                         isViewingMess = false
         }
     }
+
+    StatusList {
+        id: list
+        width: xShift
+        height: parent.height
+        x: parent.width - xShift
+        y: 0
+        visible: xShift
+    }
+
+    Button {
+        id: but_list_close
+        x: parent.width * 0.98 - xShift * 0.978
+        y: parent.height * 0.4
+        width: 15
+        height: parent.height * 0.15
+        onClicked: {
+            if (!butPress)
+                openListStatus()
+            else
+                closeListStatus()
+            butPress = !butPress
+        }
+        ToolTip.visible: hovered
+        ToolTip.text: "Кнопка для представление всех процессов"
+    }
+
+    Notification {
+        id: notif
+        onOpenFolder: { packer.openFolder(path) }
+        onOpenGit:    { packer.openGitRep() }
+    }
+
 }
 

@@ -1,3 +1,21 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 import QtQuick 2.0
 import QtQuick.Controls 2.5
 
@@ -6,7 +24,7 @@ import "qml.qrc:/ButAndTextField.qml"
 import "qml.qrc:/ThreeSpinBox.qml"
 
 Rectangle {
-    color: "#E7DED2"
+    color: "#ffdab9"
 
     property bool   isWorking       : false
     property int    bufBytes        : itemSpinBox.bufBytes

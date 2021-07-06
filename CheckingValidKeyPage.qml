@@ -1,10 +1,28 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 import QtQuick 2.0
 import QtQuick.Controls 2.5
 
 import "qml.qrc:/ButAndTextField.qml"
 
 Rectangle {
-    color: "#E7DED2"
+    color: "#ffdab9"
 
     property string dirOpenKey: ""
     property string dirSecKey : ""
@@ -46,7 +64,7 @@ Rectangle {
     TextField {
         x:2
         y:2
-        width: parent.width
+        width: parent.width - 4
         height: parent.height * 0.1 - 4
         id: textCode
         placeholderText: "Введите код"
@@ -70,6 +88,9 @@ Rectangle {
         strToolTip: "Путь к открытому ключу"
         strFileDialog : "Выберете открытый ключ"
         isStoping: isWorking
+        onDirChanged: {
+            dirOpenKey = dir
+        }
     }
 
     ButAndTextField {
@@ -83,6 +104,9 @@ Rectangle {
         strToolTip: "Путь к закрытому ключу"
         strFileDialog : "Выберете закрытый ключ"
         isStoping: isWorking
+        onDirChanged: {
+            dirSecKey = dir
+        }
     }
 
     Button {

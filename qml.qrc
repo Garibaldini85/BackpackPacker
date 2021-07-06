@@ -9,5 +9,8 @@
         <file>StatAndInpTextField.qml</file>
         <file>ThreeSpinBox.qml</file>
         <file>icon.png</file>
+        <file>StatusItem.qml</file>
+        <file>StatusList.qml</file>
+        <file>Notification.qml</file>
     </qresource>
 </RCC>

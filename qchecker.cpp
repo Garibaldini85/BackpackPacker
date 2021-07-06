@@ -1,9 +1,24 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 #include "qchecker.h"
 
-QChecker::QChecker(QObject *parent) : QObject(parent)
-{
-
-}
+QChecker::QChecker(QObject *parent) : QObject(parent) {}
 
 QChecker::QChecker(QString &version, QString &dirOpenKey)
 {
@@ -26,7 +41,19 @@ QChecker::QChecker(QString &version, QString &dirOpenKey, QString &dirSecrKey, Q
     this->dirOpenKey = dirOpenKey;
 }
 
-QString QChecker::checkOpenKey()
+void QChecker::genIdTask()
+{ idTask = QDateTime::currentDateTime().toString("hh.mm:ss"); }
+
+QString QChecker::getIdTask()
+{ return idTask; }
+
+QString QChecker::getDirOpenKey()
+{ return dirOpenKey; }
+
+QString QChecker::getDirSecrKey()
+{ return dirSecrKey; }
+
+void QChecker::checkOpenKey()
 {
     QFile file(dirOpenKey);
     file.open(QIODevice::ReadOnly | QIODevice::Text);
@@ -34,12 +61,12 @@ QString QChecker::checkOpenKey()
     str.remove('\n');
     file.close();
     if (str == version)
-        return "";
+        Err = "";
     else
-        return "Invalid Version.";
+        Err = "Invalid Version.";
 }
 
-QString QChecker::checkSecrKey()
+void QChecker::checkSecrKey()
 {
     QTotalSqueezer squeezer;
     QFile file(dirSecrKey);
@@ -49,7 +76,8 @@ QString QChecker::checkSecrKey()
     str.remove('\n');
     if (str != version) {
         file.close();
-        return "Invalid Version";
+        Err = "Invalid Version";
+        return;
     }
 
     file.readLine();
@@ -61,11 +89,10 @@ QString QChecker::checkSecrKey()
     file.close();
 
     if (squeezer.decodeIntoUtf(str) != QString::number(qChecksum((code + "salt").toLatin1().data(), code.size() + 4)))
-        return "Invalid Code.";
-    return "";
+        Err = "Invalid Code.";
 }
 
-QString QChecker::checkKeys()
+void QChecker::checkKeys()
 {
     QTotalSqueezer squeezer;
     QFile secr(dirSecrKey), open(dirOpenKey);
@@ -76,11 +103,15 @@ QString QChecker::checkKeys()
     strS.remove('\n');
     strO.remove('\n');
 
+    emit sendNameTask(idTask, "Проверка версии");
     if (!(strS == strO && strS == version)) {
         secr.close(); open.close();
-        return "Version Error.";
+        Err = "Version Error.";
+        emit doneCheck(this);
+        return;
     }
 
+    emit sendNameTask(idTask, "Проверка кода");
     QString _m = secr.readLine(), _t = secr.readLine();
     strS = secr.readLine();
     strS.remove('\n');
@@ -88,7 +119,9 @@ QString QChecker::checkKeys()
     if (!(squeezer.decodeIntoUtf(strS) == QString::number(qChecksum((code + "salt").toLatin1().data(), code.size() + 4))))
     {
         secr.close(); open.close();
-        return "Code Error.";
+        Err = "Code Error.";
+        emit doneCheck(this);
+        return;
     }
 
     BN_CTX *context = BN_CTX_new();
@@ -96,6 +129,7 @@ QString QChecker::checkKeys()
     BN_dec2bn(&m, squeezer.decodeIntoUtf(_m).toLatin1().data());
     BN_dec2bn(&t, squeezer.decodeIntoUtf(_t).toLatin1().data());
 
+    emit sendNameTask(idTask, "Проверка ключей");
     while (!secr.atEnd()) {
         QString num = secr.readLine(); num.remove('\n');
         QString _num = open.readLine(); _num.remove('\n');
@@ -106,11 +140,16 @@ QString QChecker::checkKeys()
 
         if (BN_cmp(secNum, add) != 0) {
             secr.close(); open.close();
-            return "Invalid Open Key";
+            Err = "Invalid Open Key";
+            emit doneCheck(this);
+            return;
         }
         BN_free(add); BN_free(secNum);
     }
+
+    emit sendNameTask(idTask, "Очистка памяти");
     BN_free(m); BN_free(t); BN_free(i);
     secr.close(); open.close();
-    return "Валидные ключи";
+    Err = "";
+    emit doneCheck(this);
 }

@@ -1,21 +1,39 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 #include "qencoder.h"
 
 QEncoder::QEncoder(QString &dirKey, QString &dirFile, QString &dirEncFile)
 {
     this->dirKey = dirKey;
     this->dirFile = dirFile;
-    QFileInfo suf(dirEncFile);
     QFileInfo sz(dirFile);
     sizeF = sz.size();
-    if (suf.suffix() == "")
-        this->dirEncFile = dirEncFile + "." + dirFile.split(".")[dirFile.split(".").size() - 1];
-    else
-        this->dirEncFile = dirEncFile;
+    if (dirEncFile == "") {
+        pathToFile = sz.absolutePath();
+        this->dirEncFile = sz.absolutePath() + "/" + "enc_" + sz.baseName() + "." + sz.completeSuffix();
+    } else {
+        pathToFile = dirEncFile;
+        this->dirEncFile = dirEncFile + "/" + "enc_" + sz.baseName() + "." + sz.completeSuffix();
+    }
 }
 
-QEncoder::~QEncoder()
-{
-}
+QEncoder::~QEncoder() {}
 
 QString QEncoder::getBinBlock(QString &array, int &blockSize)
 {
@@ -23,7 +41,6 @@ QString QEncoder::getBinBlock(QString &array, int &blockSize)
 
     for (int i = 0; i < array.size(); i++) {
         std::bitset<16> binCh (array[i].unicode());
-        //qDebug() << QString::fromStdString(binCh.to_string()) << " ~ "<< array[i] << " ~ " << array[i].unicode();
         retStr.push_back(QString::fromStdString(binCh.to_string()));
     }
     return retStr;
@@ -41,10 +58,24 @@ QString QEncoder::appendAddStr(QString &str, int &blockSize)
     return str;
 }
 
+void QEncoder::genIdTask()
+{
+    idTask = QDateTime::currentDateTime().toString("hh.mm:ss");
+}
+
+QString QEncoder::getIdTask()
+{ return idTask; }
+
+QString QEncoder::getDirEncFile()
+{ return dirEncFile; }
+
+QString QEncoder::getPathToFile()
+{ return pathToFile; }
+
 void QEncoder::encode()
 {
-    emit sizeFile(sizeF);
-    sizeF = 0;
+    emit sendNameTask(idTask, "Считываю ключ");
+    long long _sizeF = 0;
 
     QFileHandler handler;
     QTotalSqueezer squeezer;
@@ -55,6 +86,7 @@ void QEncoder::encode()
     QString x, bits;
     x = handler.readNextBlock();
 
+    emit sendNameTask(idTask, "Шифрую файл");
     while (x.size()) {
 
         bits = getBinBlock(x, blockSize);
@@ -75,9 +107,10 @@ void QEncoder::encode()
         x.clear();
         x = handler.readNextBlock();
 
-        sizeF += blockSize;
-        emit statusEncode(sizeF);
+        _sizeF += blockSize;
+        emit sendStatus(idTask, _sizeF * 1.0 / sizeF);
     }
+    emit sendNameTask(idTask, "Очищаю память");
     x.clear();
     BN_free(ans);
     for (int i = 0; i < vec_openKey.size(); i++)
@@ -85,5 +118,5 @@ void QEncoder::encode()
     vec_openKey.clear();
     handler.closeFile();
 
-    emit doneEncoding();
+    emit doneEncoding(this);
 }

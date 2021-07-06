@@ -1,3 +1,21 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 #include "qtotalsqueezer.h"
 
 QTotalSqueezer::QTotalSqueezer(QObject *parent) : QObject(parent)
@@ -51,8 +69,6 @@ QString QTotalSqueezer::decodeIntoUtf(QString &str)
 
 QString QTotalSqueezer::encodeToUtf(QString &str)
 {
-    //QString _str = compress(str);
-    //qDebug() << _str << Qt::endl << str;
     BN_clear(num);
     BN_clear(d);
     BN_clear(h);

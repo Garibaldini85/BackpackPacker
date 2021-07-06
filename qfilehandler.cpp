@@ -1,3 +1,21 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 #include "qfilehandler.h"
 
 QFileHandler::QFileHandler(QObject *parent) : QObject(parent)
@@ -15,15 +33,12 @@ QFileHandler::QFileHandler(QString &ver)
     t = BN_new();
 }
 
-QFileHandler::~QFileHandler()
-{
+QFileHandler::~QFileHandler() {}
 
-}
-
-void QFileHandler::writeNewKey(QString code, QString dir, QVector<BIGNUM *> sec, QVector<BIGNUM *> open, BIGNUM *m, BIGNUM *t)
+void QFileHandler::writeNewKey(QString &code, QString &dir, QVector<BIGNUM *> &sec, QVector<BIGNUM *> &open, BIGNUM *m, BIGNUM *t)
 {
     QTotalSqueezer squeezer;
-    QString _1 = QString(dir + "/" + fileName.toString("dd.MM.yyyy_hh.mm") + ".okey");
+    QString _1 = QString(dir + "/" + fileName.toString("dd.MM.yyyy_hh.mm.ss") + ".okey");
     _1.replace('\\', "/");
     QFile file(_1);
     file.open(QIODevice::WriteOnly | QIODevice::Text);
@@ -31,26 +46,32 @@ void QFileHandler::writeNewKey(QString code, QString dir, QVector<BIGNUM *> sec,
 
     out << ver << Qt::endl;
     for (auto x: open) {
-        QString str = QString::fromStdString(std::string(BN_bn2dec(x)));
+        char *c = BN_bn2dec(x);
+        QString str = c;
+        OPENSSL_free(c);
         out << squeezer.encodeToUtf(str) << Qt::endl;
 
     }
 
-    QString _2 = QString(dir + "/" + fileName.toString("dd.MM.yyyy_hh.mm") + ".skey");
+    QString _2 = QString(dir + "/" + fileName.toString("dd.MM.yyyy_hh.mm.ss") + ".skey");
     _2.replace("\\", "/");
     QFile _file(_2);
     _file.open(QIODevice::WriteOnly | QIODevice::Text);
     QTextStream _out(&_file);
 
-    QString _m = QString::fromStdString(std::string(BN_bn2dec(m)));
-    QString _t = QString::fromStdString(std::string(BN_bn2dec(t)));
+    char *c = BN_bn2dec(m), *_c = BN_bn2dec(t);
+    QString _m = QString::fromStdString(std::string(c));
+    QString _t = QString::fromStdString(std::string(_c));
+    OPENSSL_free(c); OPENSSL_free(_c);
 
     _out << ver << Qt::endl;
     QString sum = QString::number(qChecksum((code + "salt").toLatin1().data(), code.size() + 4));
     _out << squeezer.encodeToUtf(_m) << Qt::endl << squeezer.encodeToUtf(_t) << Qt::endl << squeezer.encodeToUtf(sum) << Qt::endl;
 
     for (auto x: sec) {
-        QString str = QString::fromStdString(std::string(BN_bn2dec(x)));
+        char *c = BN_bn2dec(x);
+        QString str = c;
+        OPENSSL_free(c);
         _out << squeezer.encodeToUtf(str) << Qt::endl;
 
     }
@@ -110,14 +131,10 @@ QVector<BIGNUM *> QFileHandler::readSecrKey(QString &dirSecrKey)
 }
 
 BIGNUM *QFileHandler::getM()
-{
-    return m;
-}
+{ return m; }
 
 BIGNUM *QFileHandler::getT()
-{
-    return t;
-}
+{ return t; }
 
 void QFileHandler::openBinFile(QString &dirFileIn, QString &dirFileOut, int &blockSize)
 {
@@ -176,6 +193,4 @@ void QFileHandler::openForDecFile(QString &dirFile, QString &dirFileOut)
 }
 
 QString QFileHandler::readNextEncBlock()
-{
-    return fileIn.readLine();
-}
+{ return fileIn.readLine(); }

@@ -1,9 +1,30 @@
+/*
+ *  BackpackPacker Copyright (C) 2021  Kambarov I. G.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ *  Subsequent modifications must be distributed under the same license.
+ */
+
 #include "qgeneratorkey.h"
 
-QGeneratorKey::QGeneratorKey(int bytesSize, int blockSize)
+QGeneratorKey::QGeneratorKey(int bytesSize, int blockSize, QString version, QString code, QString dir)
 {
+    handler = new QFileHandler(version);
     this->bytesSize = bytesSize;
     this->blockSize = blockSize;
+    this->code = code;
+    this->dir = dir;
     m = BN_new();
     t = BN_new();
     u = BN_new();
@@ -11,19 +32,57 @@ QGeneratorKey::QGeneratorKey(int bytesSize, int blockSize)
 
 QGeneratorKey::~QGeneratorKey()
 {
+    handler->deleteLater();
+    for (auto x: openVec)
+        BN_free(x);
+    openVec.clear();
+    for (auto x: secVec)
+        BN_free(x);
+    secVec.clear();
     BN_free(m);
     BN_free(t);
     BN_free(u);
 }
+
+void QGeneratorKey::genIdTask()
+{ idTask = QDateTime::currentDateTime().toString("hh.mm:ss"); }
+
+QString QGeneratorKey::getIdTask()
+{ return idTask; }
+
+QString QGeneratorKey::getDir()
+{ return dir; }
+
+int QGeneratorKey::getBlockSize()
+{ return this->blockSize; }
+
+BIGNUM *QGeneratorKey::getM()
+{ return m; }
+
+BIGNUM *QGeneratorKey::getT()
+{ return t; }
+
+QVector<BIGNUM *> QGeneratorKey::getOpenKey()
+{ return openVec; }
+
+QVector<BIGNUM *> QGeneratorKey::getSecKey()
+{ return secVec; }
 
 int QGeneratorKey::bn_count_bits (BIGNUM *bn)
 {
     BIGNUM *num = BN_new();
     BN_copy(num, bn);
     int n = 1, counter = 0;
-    while (strcmp(BN_bn2dec(num), "0") != 0)
+    char *c = BN_bn2dec(num);
+    QString str = c;
+    OPENSSL_free(c);
+
+    while (str != "0")
     {
         BN_rshift(num, num, n);
+        char *c = BN_bn2dec(num);
+        str = c;
+        OPENSSL_free(c);
         counter += 1;
     }
     BN_free(num);
@@ -39,10 +98,13 @@ bool QGeneratorKey::generateM(QVector <BIGNUM *> vec_secKey)
 
     for (auto x: vec_secKey)
         BN_add(sum, sum, x);
+    BN_GENCB *callback;
+    callback = BN_GENCB_new();
 
     while (BN_cmp(m, vec_secKey[vec_secKey.size() - 1]) != 1)
-        BN_generate_prime_ex(m, bn_count_bits(sum), 0, NULL, NULL, NULL);
+        BN_generate_prime_ex(m, bn_count_bits(sum), 0, NULL, NULL, callback);
 
+    BN_GENCB_free(callback);
     BN_copy(this->m, m);
     BN_free(m);
     BN_free(sum);
@@ -76,8 +138,12 @@ void QGeneratorKey::generateSecKey()
 
     BN_rand(add, bytesSize, 1234567890, NULL);
 
-    for (int i = 0; i < blockSize * 8; i++) {
-        QString str = BN_bn2dec(add);
+    for (int i = 0; i < blockSize * 16; i++) {
+        //QString str = BN_bn2dec(add);
+        char *c = BN_bn2dec(add);
+        QString str = c;
+        OPENSSL_free(c);
+
         BN_rand(step, bytesSize / 2, 1234567890, NULL);
 
         int x = Random::get(str.size() - str.size() / 2, str.size() - 1);
@@ -92,12 +158,15 @@ void QGeneratorKey::generateSecKey()
 
         BIGNUM *_add = BN_new();
         BN_copy(_add, add);
-        str = BN_bn2dec(_add);
+        char *_c = BN_bn2dec(_add);
+        str = _c;
+        OPENSSL_free(_c);
 
         secVec.push_back(_add);
-        emit sendSecCounter(i + 1);
+        emit sendSecCounter(this, i + 1);
     }
 
+    emit sendNameTask(this->idTask, "Генерирую секретную пару");
     generateM(secVec);
     generateT();
 
@@ -107,8 +176,6 @@ void QGeneratorKey::generateSecKey()
     BN_free(_one);
     BN_CTX_free(context);
 
-    emit sendCompletedFindSec(true);
-    emit doneGenSec();
 }
 
 void QGeneratorKey::generateOpenKey()
@@ -117,32 +184,24 @@ void QGeneratorKey::generateOpenKey()
     int counter = 0;
 
     for (auto i: qAsConst(secVec)) {
-        emit sendOpenCounter(counter);
+        emit sendOpenCounter(this, counter);
         counter ++;
         BIGNUM *add = BN_new();
         BN_mod_mul(add, i, t, m, context);
         openVec.push_back(add);
     }
-
-    emit doneGenOpen();
+    BN_CTX_free(context);
 }
 
-BIGNUM *QGeneratorKey::getM()
+void QGeneratorKey::generateKeys()
 {
-    return m;
-}
-
-BIGNUM *QGeneratorKey::getT()
-{
-    return t;
-}
-
-QVector<BIGNUM *> QGeneratorKey::getOpenKey()
-{
-    return openVec;
-}
-
-QVector<BIGNUM *> QGeneratorKey::getSecKey()
-{
-    return secVec;
+    emit sendNameTask(this->idTask, "Генерирую секретный ключ");
+    generateSecKey();
+    emit sendNameTask(this->idTask, "Генерирую открытый ключ");
+    generateOpenKey();
+    emit sendNameTask(this->idTask, "Записываю ключи");
+    handler->writeNewKey(code, dir,
+                         secVec, openVec,
+                         m, t);
+    emit sendCompletedTask(this);
 }
